@@ -1,3 +1,4 @@
+-- Create the Bamazon Database
 DROP DATABASE IF EXISTS bamazon;
 CREATE DATABASE bamazon;
 
@@ -27,3 +28,4 @@ INSERT INTO products(product_name, department_name, price, stock_quantity)
 		 ('Mario Kart 8 Deluxe - Nintendo Switch', 'Toys & Games', 55.99, 35);
 
 SELECT * FROM products;
+
