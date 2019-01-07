@@ -1,105 +1,120 @@
-const inquirer = require('inquirer');
-const mysql = require('mysql');
+//Dependencies
+var inquirer = require('inquirer');
+var mysql = require('mysql');
 
-const connection = mysql.createConnection({
-    host: 'localhost',
+//MYSQL Connection
+var connection = mysql.createConnection({
+    host: "localhost",
     port: 3306,
-    user: 'root',
-    password: 'Georgieboy12gy',
-    database: 'bamazon',
-    insecureAuth : true
+    user: "root", //Your username
+    password: "password", //Your password
+    database: "bamazon"
 });
 
-connection.connect(function (err) {
-    if (err) throw err;
-    purchaseItem();
-    console.log('Connection established');
-});
+//Validate Input to make sure only positive numbers are being entered
+function validateInput(value) {
+	var integer = Number.isInteger(parseFloat(value));
+	var sign = Math.sign(value);
 
-//Prompt the user with two messages. The first should ask them the ID of the product key they would like to buy.
-// Second message should ask how many units of the product key they would like to buy.
-const purchaseItem = () => {
-    connection.query('SELECT * FROM products', function (err, results) {
-    inquirer.prompt([
-    // Ask ID of Product
+	if (integer && (sign === 1)) {
+		return true;
+	} else {
+		return 'Please enter a whole non-zero number.';
+	}
+}
+
+//MAIN CHECK AND ORDER FUNCTION WHICH DISPLAYS ALL ITEMS FROM MY SQL DATABASE AND THEN ADDS FUNCTIONALITY TO BUY AN ITEM WITH QUANTITIY CHOICES. 
+var checkAndOrder = function() {
+        // Make the database query
+        connection.query('SELECT * FROM products', function(err, data) {
+            if (err) throw err;
+
+            console.log('Available Items to Buy in Bamazon Inventory: ');
+            console.log("---------------------------------------------------------------------\n");
+
+            var output = '';
+            for (var i = 0; i < data.length; i++) {
+                output = '';
+                output += 'Item ID: ' + data[i].item_id + '  |  ';
+                output += 'Product Name: ' + data[i].product_name + '  |  ';
+                output += 'Department: ' + data[i].department_name + '  |  ';
+                output += 'Price: $' + data[i].price + '\n';
+
+                console.log(output);
+            }
+
+         console.log("---------------------------------------------------------------------\n");
+        inquirer.prompt([
         {
-            name: 'userChoice',
-            type:'input',
-            message: 'Welcome to Bamazon! Please enter the Item ID of the product you would like to purchase.',
-            choices: function () {
-                let products = [];
-                for (let i = 0; i < results.length; i++) {
-                    products.push(results[i].item_id.product_name);
+            name: "item_id",
+            type: "input",
+            message: "What is the item ID you would like to buy?",
+            validate: function(value) {
+                if (isNaN(value) == false) {
+                    return true;
+                } else {
+                    return false;
                 }
-                return products;
             },
-        },
-     // Ask how many units
+            filter: Number
+        }, 
         {
-            name: 'units',
-            type: 'input',
-            message: 'How many units of the product would you want to purchase?'
-
+            name: "quantity",
+            type: "input",
+            message: "How many of this item would you like to buy?",
+            validate: function(value) {
+                if (isNaN(value) == false) {
+                    return true;
+                } else {
+                    return false;
+                }
+            },
+            filter: Number
         }
+        ]).then(function(answer) {
+            var chosenId = answer.item_id;
+            var chosenQuantity = answer.quantity;
+            
+        // Query the database to confirm that the given item ID exists in the desired quantity
+            connection.query('SELECT * FROM products WHERE ?', {item_id: chosenId}, function(err, data) {
+                if (err) throw err;
+       
+        if(data.length === 0) {
+            
+        console.log('ERROR: Invalid Item ID. Please select a valid Item ID.');
 
-    ])
-    .then(function(input) {
 
-      /* 1. Once the customer has placed the order, your application should check if your store has enough of the product to meet the customer's request.
-            If not, the app should log a phrase like Insufficient quantity!, and then prevent the order from going through. */
-      
-     /*  2. However, if your store does have enough of the product, you should fulfill the customer's order. This means updating the SQL database to reflect the remaining quantity.
-            Once the update goes through, show the customer the total cost of their purchase. */
-        let chosenItem;
-        for (let i = 0; i < results.length; i++) {
-            if (input.userChoice === results[i].product_name) {
-                chosenItem = results[i];
+        } else {
+            var productData = data[0];
+
+        // Checks if the quantity requested by the user is in stocks
+            if (chosenQuantity <= productData.stock_quantity) {
+                console.log("Hooray! The product you selected is in stock! Your total for " + "(" + answer.quantity + ")" + " - " + productData.product_name + " is: $" + productData.price.toFixed(2) * chosenQuantity);
+                console.log('Thank you for shopping at Bamazon!');
+                console.log("---------------------------------------------------------------------\n");
+        // Update the Inventory   
+            var updateQueryStr = "UPDATE products SET stock_quantity = " + (productData.stock_quantity - chosenQuantity) + " WHERE item_id = " + chosenId;
+            connection.query(updateQueryStr, function(err, data){
+                if (err) throw err;
+
+        // End Database Connection
+            connection.end
+            })
+            
+            } 
+            else {
+                console.log("Sorry, insufficient Quanity at this time. All we have is " + productData.stock_quantity + " in our Inventory.");
+                console.log("Please modify your order.");
+                console.log("---------------------------------------------------------------------\n");
+                checkAndOrder();
             }
         }
 
-        if (chosenItem.stock_quantity >= parseInt(input.units)) {
-
-            let unitsBought = parseInt(input.units);
-            let priceOfUnits = (unitsBought * chosenItem.price).toFixed(2);
-            
-
-            let stockLeft = parseInt(chosenItem.stock_quantity - unitsBought);
-
-            connection.query(
-                'UPDATE products SET ? WHERE ?',
-                [
-                    {
-                        product_sales: priceOfUnits,
-                        stock_quantity: stockLeft
-                    },
-                    {
-                        item_id: chosenItem.item_id
-                    }
-                ],
-                function (error) {
-                    if (error) {
-                        throw err;
-
-                    } else {
-                        console.log(`\nDone!\nThank you for your purchase of ${item.units} units of ${chosenItem.product_name}.\nYour total cost for this purchase is ${priceOfUnits}\n \n \n`);
-                        setTimeout(function () {
-                            purchaseItem();
-                        }, 1500);
-                    }
-
-
-                }
-            );
-
-        } else {
-            console.log('\nSorry. There are not enough units your purchase. \n Please try again later or select a different product to purchase.\n \n \n \n');
-            setTimeout(function () {
-                purchaseItem();
-            }, 1500);
-
-        }
-
-      });
-
-    });
+        
+         })
+     })
+  })
 }
+
+//Run the application
+checkAndOrder();
