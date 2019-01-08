@@ -11,18 +11,6 @@ var connection = mysql.createConnection({
     database: "bamazon"
 });
 
-//Validate Input to make sure only positive numbers are being entered
-function validateInput(value) {
-	var integer = Number.isInteger(parseFloat(value));
-	var sign = Math.sign(value);
-
-	if (integer && (sign === 1)) {
-		return true;
-	} else {
-		return 'Please enter a whole non-zero number.';
-	}
-}
-
 //MAIN CHECK AND ORDER FUNCTION WHICH DISPLAYS ALL ITEMS FROM MY SQL DATABASE AND THEN ADDS FUNCTIONALITY TO BUY AN ITEM WITH QUANTITIY CHOICES. 
 var checkAndOrder = function() {
         // Make the database query
