@@ -32,6 +32,7 @@ var checkAndOrder = function() {
             }
 
          console.log("---------------------------------------------------------------------\n");
+        //Prompt user for ID and Quantity of Items user would like to order 
         inquirer.prompt([
         {
             name: "item_id",
